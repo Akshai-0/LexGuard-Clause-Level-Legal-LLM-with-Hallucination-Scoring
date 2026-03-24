@@ -11,6 +11,6 @@ REM Move to the folder where this BAT file exists
 cd /d "%~dp0"
 
 REM Launch Streamlit through Python
-python -m streamlit run app.py
+python -m streamlit run Code.py
 
 pause
