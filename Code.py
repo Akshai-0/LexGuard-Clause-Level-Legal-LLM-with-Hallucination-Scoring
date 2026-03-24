@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 from openai import OpenAI 
 import time
 
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_ID = "llama-3.3-70b-versatile"
 
 client = OpenAI(
