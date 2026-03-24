@@ -6,7 +6,7 @@ import sys
 # Ensure the current directory is in the path so we can import Test1
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from Test1 import (
+from Code import (
     read_pdf, 
     chunk_text, 
     embed_chunks, 
