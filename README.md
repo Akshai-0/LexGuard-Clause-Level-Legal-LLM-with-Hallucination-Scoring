@@ -74,5 +74,5 @@ legal-llm-auditor/
 
 ---
 ## Author 
-**Akshai D K** 
+Akshai D K
 AI / Future Technology Projects
