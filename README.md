@@ -73,5 +73,6 @@ legal-llm-auditor/
 ```
 
 ---
-
-Built by **Akshai D K** · AI / Future Technology Projects
+## Author 
+**Akshai D K** 
+AI / Future Technology Projects
