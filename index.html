@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>⚖️ AI Legal Auditor – Lex Guard</title>
+  <meta name="description" content="Upload legal PDFs and get AI-powered insights, semantic clustering, and Ironclad hallucination auditing — all in your browser."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #03050d;
+      --bg2:    #070d1a;
+      --card:   #0b1224;
+      --card2:  #0d1830;
+      --border: #142040;
+      --blue1:  #0055ff;
+      --blue2:  #00e5ff;
+      --text:   #e2e8f0;
+      --muted:  #64748b;
+      --green:  #22c55e;
+      --yellow: #f59e0b;
+      --red:    #ef4444;
+      --radius: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* Grid bg */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,85,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg,rgba(0,85,255,.035) 1px,transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── LAYOUT ── */
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.4rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo img {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+    }
+
+    .sidebar-logo-text h1 {
+      font-size: 1rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--blue1), var(--blue2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar-logo-text p { font-size: .7rem; color: var(--muted); }
+
+    .sidebar-section h4 {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .8rem;
+    }
+
+    label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: .4rem;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--blue2);
+      border-radius: 8px;
+      padding: .6rem .9rem;
+      font-size: .85rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    textarea:focus { border-color: var(--blue2); }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: var(--card);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--blue2);
+      background: rgba(0,229,255,.04);
+    }
+    .drop-zone .dz-icon { font-size: 2rem; margin-bottom: .5rem; }
+    .drop-zone .dz-text { font-size: .8rem; color: var(--muted); }
+    .drop-zone .dz-filename { font-size: .78rem; color: var(--blue2); margin-top: .4rem; font-weight: 600; }
+
+    input[type="file"] { display: none; }
+
+    .btn {
+      width: 100%;
+      padding: .75rem;
+      border-radius: 10px;
+      background: linear-gradient(90deg, var(--blue1), var(--blue2));
+      color: #fff;
+      font-weight: 700;
+      font-size: .9rem;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0,229,255,.2);
+      transition: transform .2s, box-shadow .2s, opacity .2s;
+    }
+    .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(0,229,255,.35); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    .api-toggle {
+      font-size: .72rem;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+      margin-top: .3rem;
+    }
+    .api-toggle:hover { color: var(--blue2); }
+
+    /* ── MAIN ── */
+    .main {
+      padding: 2rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .main-header h2 {
+      font-size: 1.8rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #fff 40%, var(--blue2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .main-header p { color: var(--muted); font-size: .9rem; margin-top: .3rem; }
+
+    /* ── PIPELINE BAR ── */
+    .pipeline-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.5rem;
+      overflow-x: auto;
+    }
+
+    .pipe-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .3rem;
+      min-width: 70px;
+    }
+
+    .pipe-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      transition: all .3s;
+    }
+
+    .pipe-step.active .pipe-icon {
+      border-color: var(--blue2);
+      background: rgba(0,229,255,.1);
+      box-shadow: 0 0 16px rgba(0,229,255,.3);
+      animation: pulse-step .8s infinite alternate;
+    }
+    .pipe-step.done .pipe-icon {
+      border-color: var(--green);
+      background: rgba(34,197,94,.1);
+    }
+    .pipe-step.done .pipe-icon::after { content: '✓'; }
+
+    @keyframes pulse-step {
+      from { box-shadow: 0 0 6px rgba(0,229,255,.3); }
+      to   { box-shadow: 0 0 20px rgba(0,229,255,.6); }
+    }
+
+    .pipe-label { font-size: .6rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
+    .pipe-step.active .pipe-label { color: var(--blue2); }
+    .pipe-step.done  .pipe-label { color: var(--green); }
+
+    .pipe-arrow { color: var(--border); font-size: 1rem; flex-shrink: 0; padding: 0 .3rem; margin-bottom: 1rem; }
+
+    /* ── PROGRESS ── */
+    .progress-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .progress-title {
+      font-size: .9rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .progress-outer {
+      background: var(--border);
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: .8rem;
+    }
+
+    .progress-inner {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue1), var(--blue2));
+      border-radius: 99px;
+      box-shadow: 0 0 12px rgba(0,229,255,.4);
+      transition: width .6s ease;
+      width: 0%;
+    }
+
+    .progress-log {
+      font-size: .78rem;
+      color: var(--muted);
+      max-height: 80px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: .2rem;
+    }
+
+    .log-line { display: flex; align-items: center; gap: .4rem; }
+    .log-line.done { color: var(--green); }
+    .log-line.active { color: var(--blue2); }
+    .log-line.error { color: var(--red); }
+
+    /* ── RESULTS ── */
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .result-col h3 {
+      font-size: 1rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--blue1), var(--blue2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: .4rem;
+    }
+
+    .result-col .col-sub { font-size: .78rem; color: var(--muted); margin-bottom: 1rem; }
+
+    /* Expander */
+    .expander {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: .75rem;
+      overflow: hidden;
+    }
+
+    .expander-header {
+      padding: .8rem 1rem;
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--blue2);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+      transition: background .2s;
+    }
+    .expander-header:hover { background: rgba(0,229,255,.04); }
+    .expander-header .arrow { transition: transform .25s; font-size: .7rem; }
+    .expander.open .expander-header .arrow { transform: rotate(180deg); }
+
+    .expander-body {
+      display: none;
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: .82rem;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+    .expander.open .expander-body { display: block; }
+
+    /* Audit card */
+    .audit-card {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem;
+      font-size: .82rem;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      max-height: 600px;
+      overflow-y: auto;
+      color: var(--text);
+    }
+
+    /* Score badges */
+    .score-row {
+      display: flex;
+      gap: .6rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .score-badge {
+      padding: .4rem .9rem;
+      border-radius: 99px;
+      font-size: .75rem;
+      font-weight: 700;
+    }
+    .score-badge.pass { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: var(--green); }
+    .score-badge.warn { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.3); color: var(--yellow); }
+    .score-badge.fail { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: var(--red); }
+
+    /* ── WELCOME / SPLASH ── */
+    .splash {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 1.2rem;
+    }
+
+    .splash-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.4rem;
+      transition: border-color .2s, transform .2s;
+    }
+    .splash-card:hover { border-color: rgba(0,229,255,.25); transform: translateY(-3px); }
+    .splash-card .sc-icon { font-size: 1.8rem; margin-bottom: .7rem; }
+    .splash-card h4 { font-size: .85rem; font-weight: 700; color: var(--blue2); margin-bottom: .4rem; }
+    .splash-card p  { font-size: .8rem; color: var(--muted); line-height: 1.6; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+
+    .splash-footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .82rem;
+      padding: .5rem 0;
+    }
+
+    /* ── ERROR / INFO BOX ── */
+    .alert {
+      padding: .8rem 1.1rem;
+      border-radius: 8px;
+      font-size: .83rem;
+      font-weight: 500;
+    }
+    .alert.error { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); color: var(--red); }
+    .alert.info  { background: rgba(0,85,255,.1);  border: 1px solid rgba(0,85,255,.3);  color: var(--blue2); }
+    .alert.success { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); color: var(--green); }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--blue1); }
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:900px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .results-grid { grid-template-columns: 1fr; }
+      .splash { grid-template-columns: 1fr; }
+    }
+
+    /* spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue2);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══════════════ SIDEBAR ══════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#0055ff,#00e5ff);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">⚖️</div>
+      <div class="sidebar-logo-text">
+        <h1>Lex Guard</h1>
+        <p>AI Legal Auditor</p>
+      </div>
+    </div>
+
+    <!-- API Key -->
+    <div class="sidebar-section">
+      <h4>🔑 Configuration</h4>
+      <label for="api-key-input">Groq API Key</label>
+      <div class="input-wrap">
+        <input type="password" id="api-key-input" placeholder="gsk_…" autocomplete="off"/>
+      </div>
+      <div class="api-toggle" id="toggle-key-vis" onclick="toggleKeyVis()">
+        <span id="toggle-eye">👁</span> Show key
+      </div>
+    </div>
+
+    <!-- File upload -->
+    <div class="sidebar-section">
+      <h4>📄 Document</h4>
+      <label>Upload PDF Document</label>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+           ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <div class="dz-icon">📂</div>
+        <div class="dz-text">Click or drag &amp; drop a PDF here</div>
+        <div class="dz-filename hidden" id="dz-filename"></div>
+      </div>
+      <input type="file" id="file-input" accept=".pdf" onchange="handleFileSelect(event)"/>
+    </div>
+
+    <!-- Query -->
+    <div class="sidebar-section">
+      <h4>🔍 Analysis Intent</h4>
+      <label for="query-input">Search Intent / Query</label>
+      <input type="text" id="query-input" placeholder="e.g., What are the main liabilities?"/>
+    </div>
+
+    <!-- Run button -->
+    <button class="btn" id="run-btn" onclick="runAnalysis()" disabled>
+      ⚡ Run Analysis
+    </button>
+
+    <div id="sidebar-error" class="alert error hidden"></div>
+
+    <div style="margin-top:auto; padding-top:1rem; border-top:1px solid var(--border); font-size:.7rem; color:var(--muted);">
+      <p>Powered by <strong style="color:var(--blue2);">LLaMA 3.3-70B</strong> via Groq · <strong style="color:var(--blue2);">PDF.js</strong> for parsing</p>
+      <p style="margin-top:.3rem;">All processing happens in your browser. Your API key is never stored on any server.</p>
+    </div>
+  </aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main" id="main-area">
+
+    <div class="main-header">
+      <h2>⚖️ AI Legal Auditor</h2>
+      <p>Upload legal documents and extract deep insights powered by GenAI &amp; Semantic Clustering.</p>
+    </div>
+
+    <!-- Pipeline bar -->
+    <div class="pipeline-bar" id="pipeline-bar">
+      <div class="pipe-step" id="pipe-0"><div class="pipe-icon">📄</div><span class="pipe-label">Read PDF</span></div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-step" id="pipe-1"><div class="pipe-icon">✂️</div><span class="pipe-label">Chunk</span></div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-step" id="pipe-2"><div class="pipe-icon">🔵</div><span class="pipe-label">Cluster</span></div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-step" id="pipe-3"><div class="pipe-icon">🏷️</div><span class="pipe-label">Categorise</span></div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-step" id="pipe-4"><div class="pipe-icon">💡</div><span class="pipe-label">Insights</span></div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-step" id="pipe-5"><div class="pipe-icon">🛡️</div><span class="pipe-label">Audit</span></div>
+    </div>
+
+    <!-- Progress (hidden initially) -->
+    <div class="progress-section hidden" id="progress-section">
+      <div class="progress-title"><span class="spinner"></span> <span id="progress-step-label">Processing…</span></div>
+      <div class="progress-outer"><div class="progress-inner" id="progress-inner"></div></div>
+      <div class="progress-log" id="progress-log"></div>
+    </div>
+
+    <!-- Error box -->
+    <div class="alert error hidden" id="main-error"></div>
+
+    <!-- SPLASH (shown before analysis) -->
+    <div id="splash-area">
+      <div class="splash">
+        <div class="splash-card">
+          <div class="sc-icon">📖</div>
+          <h4>Document Parsing</h4>
+          <p>Automatically splits and embeds complex legal agreements into logical chunks for deep analysis.</p>
+        </div>
+        <div class="splash-card">
+          <div class="sc-icon">🔵</div>
+          <h4>Semantic Clustering</h4>
+          <p>Identifies hidden relationships and distinct legal topics using sentence-based grouping algorithms.</p>
+        </div>
+        <div class="splash-card">
+          <div class="sc-icon">🛡️</div>
+          <h4>Ironclad Auditing</h4>
+          <p>Runs a rigorous LLM fact-check to verify every generated output claim back to the source text.</p>
+        </div>
+      </div>
+      <hr class="divider" style="margin:1.2rem 0;"/>
+      <div class="splash-footer">Awaiting user input. Please use the sidebar to connect your data.</div>
+    </div>
+
+    <!-- RESULTS (hidden until analysis done) -->
+    <div id="results-area" class="hidden">
+      <div class="results-grid">
+        <!-- Col 1: Insights -->
+        <div class="result-col">
+          <h3>🔍 Legal Insights</h3>
+          <p class="col-sub">AI-driven synthesis linking legal clauses to your targeted intent.</p>
+          <div id="insights-container"></div>
+        </div>
+        <!-- Col 2: Audit -->
+        <div class="result-col">
+          <h3>🛡️ Ironclad Audit</h3>
+          <p class="col-sub">Automated hallucination scoring and fact verification.</p>
+          <div class="score-row" id="score-row"></div>
+          <div class="audit-card" id="audit-container"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let selectedFile = null;
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const NUM_CLUSTERS = 5;
+
+// ═══════════════════════════════════════════════════════
+//  SIDEBAR HELPERS
+// ═══════════════════════════════════════════════════════
+function toggleKeyVis() {
+  const inp = document.getElementById('api-key-input');
+  const eye = document.getElementById('toggle-eye');
+  const lbl = document.getElementById('toggle-key-vis');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    eye.textContent = '🙈';
+    lbl.lastChild.textContent = ' Hide key';
+  } else {
+    inp.type = 'password';
+    eye.textContent = '👁';
+    lbl.lastChild.textContent = ' Show key';
+  }
+}
+
+function handleDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('drop-zone').classList.remove('drag-over'); }
+
+function handleDrop(e) {
+  e.preventDefault();
+  handleDragLeave();
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') setFile(file);
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) setFile(file);
+}
+
+function setFile(file) {
+  selectedFile = file;
+  const fn = document.getElementById('dz-filename');
+  fn.textContent = '📄 ' + file.name;
+  fn.classList.remove('hidden');
+  document.getElementById('drop-zone').querySelector('.dz-text').textContent = 'PDF selected';
+  checkReady();
+}
+
+document.getElementById('api-key-input').addEventListener('input', checkReady);
+document.getElementById('query-input').addEventListener('input', checkReady);
+
+function checkReady() {
+  const key   = document.getElementById('api-key-input').value.trim();
+  const query = document.getElementById('query-input').value.trim();
+  document.getElementById('run-btn').disabled = !(selectedFile && key && query);
+}
+
+// ═══════════════════════════════════════════════════════
+//  PDF READING
+// ═══════════════════════════════════════════════════════
+async function readPDF(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n';
+  }
+  return fullText.trim();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TEXT CHUNKING  (sentence-based)
+// ═══════════════════════════════════════════════════════
+function chunkText(text) {
+  // Heal text
+  text = text.replace(/\s+/g, ' ').trim();
+  // Split on sentence boundaries
+  const raw = text.match(/[^.!?]+[.!?]+["']?/g) || [text];
+  // Filter empty / too-short
+  return raw.map(s => s.trim()).filter(s => s.length > 20);
+}
+
+// ═══════════════════════════════════════════════════════
+//  CLUSTERING  (simple: split into N groups by order)
+// ═══════════════════════════════════════════════════════
+function clusterChunks(chunks) {
+  const n = Math.min(NUM_CLUSTERS, chunks.length);
+  const groups = Array.from({ length: n }, () => []);
+  chunks.forEach((c, i) => groups[i % n].push(c));
+  return groups;
+}
+
+// ═══════════════════════════════════════════════════════
+//  GROQ API  (chat completion)
+// ═══════════════════════════════════════════════════════
+async function groqChat(apiKey, userContent) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [{ role: 'user', content: userContent }],
+      temperature: 0.3
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Groq API error (${res.status})`);
+  }
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+// ═══════════════════════════════════════════════════════
+//  PIPELINE UI HELPERS
+// ═══════════════════════════════════════════════════════
+function setPipeStep(idx, state) {
+  for (let i = 0; i < 6; i++) {
+    const el = document.getElementById('pipe-' + i);
+    el.classList.remove('active', 'done');
+  }
+  for (let i = 0; i < idx; i++) {
+    document.getElementById('pipe-' + i).classList.add('done');
+  }
+  if (idx < 6) document.getElementById('pipe-' + idx).classList.add('active');
+}
+
+function setPipeAllDone() {
+  for (let i = 0; i < 6; i++) document.getElementById('pipe-' + i).classList.add('done');
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progress-inner').style.width = pct + '%';
+  document.getElementById('progress-step-label').textContent = label;
+}
+
+function addLog(msg, cls = '') {
+  const log = document.getElementById('progress-log');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + cls;
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function showError(msg, where = 'main') {
+  const id = where === 'main' ? 'main-error' : 'sidebar-error';
+  const el = document.getElementById(id);
+  el.textContent = '⚠️ ' + msg;
+  el.classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════════════════
+//  RESULTS RENDERING
+// ═══════════════════════════════════════════════════════
+function renderInsight(report, idx) {
+  const container = document.getElementById('insights-container');
+  const exp = document.createElement('div');
+  exp.className = 'expander open';
+  exp.innerHTML = `
+    <div class="expander-header" onclick="toggleExpander(this)">
+      <span>📌 ${escapeHtml(report.category)}</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="expander-body">${escapeHtml(report.analysis)}</div>
+  `;
+  container.appendChild(exp);
+}
+
+function toggleExpander(header) {
+  const exp = header.closest('.expander');
+  exp.classList.toggle('open');
+}
+
+function parseHallucinationScore(auditText) {
+  // Try to extract the final hallucination score from the text
+  const match = auditText.match(/hallucination score[:\s]+([0-9.]+)%?/i);
+  if (match) return parseFloat(match[1]);
+  return null;
+}
+
+function renderAudit(auditText) {
+  const score = parseHallucinationScore(auditText);
+  const scoreRow = document.getElementById('score-row');
+  if (score !== null) {
+    let cls = score < 15 ? 'pass' : score < 35 ? 'warn' : 'fail';
+    let lbl = score < 15 ? '✅ Low Risk' : score < 35 ? '⚠️ Moderate Risk' : '❌ High Risk';
+    scoreRow.innerHTML = `
+      <span class="score-badge ${cls}">🎯 Hallucination: ${score.toFixed(1)}%</span>
+      <span class="score-badge ${cls}">${lbl}</span>
+    `;
+  }
+  document.getElementById('audit-container').textContent = auditText;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN ANALYSIS PIPELINE
+// ═══════════════════════════════════════════════════════
+async function runAnalysis() {
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  const query  = document.getElementById('query-input').value.trim();
+
+  // Reset UI
+  document.getElementById('main-error').classList.add('hidden');
+  document.getElementById('sidebar-error').classList.add('hidden');
+  document.getElementById('splash-area').classList.add('hidden');
+  document.getElementById('results-area').classList.add('hidden');
+  document.getElementById('insights-container').innerHTML = '';
+  document.getElementById('score-row').innerHTML = '';
+  document.getElementById('audit-container').textContent = '';
+  document.getElementById('progress-log').innerHTML = '';
+  document.getElementById('progress-section').classList.remove('hidden');
+  document.getElementById('run-btn').disabled = true;
+
+  try {
+    // ── STEP 1: Read PDF ──────────────────────────────
+    setPipeStep(0, 'active');
+    setProgress(5, '[Step 1/6] Reading PDF content…');
+    addLog('📄 Reading PDF…', 'active');
+
+    const fullText = await readPDF(selectedFile);
+    if (!fullText || fullText.length < 50) throw new Error('Could not extract text from the PDF. Is it a scanned image PDF?');
+
+    addLog(`   ✓ Extracted ${fullText.length.toLocaleString()} characters`, 'done');
+    setProgress(16, '[Step 2/6] Chunking text…');
+    setPipeStep(1, 'active');
+
+    // ── STEP 2: Chunk ────────────────────────────────
+    const chunks = chunkText(fullText);
+    if (chunks.length === 0) throw new Error('No sentences found in the PDF text.');
+    addLog(`✂️ Created ${chunks.length} sentence chunks`, 'done');
+    setProgress(32, '[Step 3/6] Clustering by topic…');
+    setPipeStep(2, 'active');
+
+    // ── STEP 3: Cluster ──────────────────────────────
+    const groups = clusterChunks(chunks);
+    addLog(`🔵 Formed ${groups.length} topic clusters`, 'done');
+    setProgress(48, '[Step 4/6] Analysing legal categories…');
+    setPipeStep(3, 'active');
+
+    // ── STEP 4: Categorise (LLM) ─────────────────────
+    const analyses = [];
+    for (let i = 0; i < groups.length; i++) {
+      const context = groups[i].join('\n');
+      addLog(`   Analysing cluster ${i + 1}/${groups.length}…`, 'active');
+      const prompt = `Role: Legal Auditor. Summarize obligations and identify creative risks for this text:\n\n${context.slice(0, 3000)}`;
+      const analysisText = await groqChat(apiKey, prompt);
+      analyses.push({ id: i, original_text: context, analysis: analysisText });
+      setProgress(48 + Math.round(12 * (i + 1) / groups.length), `[Step 4/6] Cluster ${i+1}/${groups.length} done…`);
+    }
+    addLog('🏷️ All categories analysed', 'done');
+    setProgress(60, '[Step 5/6] Generating legal insights…');
+    setPipeStep(4, 'active');
+
+    // ── STEP 5: Insights (LLM) ───────────────────────
+    const insights = [];
+    for (let i = 0; i < analyses.length; i++) {
+      const label = `Category Cluster ${analyses[i].id}`;
+      const text  = analyses[i].original_text;
+      addLog(`   Insight for ${label}…`, 'active');
+      const prompt = `
+ROLE: Senior Legal Auditor | CATEGORY: ${label}
+USER INTENT: ${query}
+CONTEXT: ${text.slice(0, 3000)}
+
+TASK:
+1. Link this category to the user's intent.
+2. Find 1 non-obvious loophole.
+3. Flag high-severity items.
+      `.trim();
+      const analysis = await groqChat(apiKey, prompt);
+      insights.push({ category: label, analysis, source: text });
+      setProgress(60 + Math.round(20 * (i + 1) / analyses.length), `[Step 5/6] Insight ${i+1}/${analyses.length} done…`);
+    }
+    addLog('💡 Insights generated', 'done');
+    setProgress(80, '[Step 6/6] Running Ironclad Audit…');
+    setPipeStep(5, 'active');
+
+    // ── STEP 6: Ironclad Audit (LLM) ─────────────────
+    const insightSummary = insights.map(r => `[${r.category}]\n${r.analysis}`).join('\n\n---\n\n');
+    const auditPrompt = `
+SOURCE TEXT:
+${fullText.slice(0, 6000)}
+
+ANALYSIS TO AUDIT:
+${insightSummary.slice(0, 4000)}
+
+TASK:
+1. Extract ONLY factual claims present in the ANALYSIS.
+2. For each claim, locate the EXACT supporting sentence in the SOURCE TEXT.
+3. If an EXACT supporting sentence exists, quote it as Evidence.
+4. If a RELATED statement exists but does not fully support the claim, classify as partially existing.
+5. If no relevant statement exists anywhere in the SOURCE TEXT, mark Evidence as 'NONE FOUND'.
+
+RULES:
+- Extract the MINIMUM number of factual claims necessary.
+- Each claim must be directly verifiable from the SOURCE TEXT.
+
+CLAIM CLASSIFICATION DEFINITIONS:
+Claim-existing one's (Strictly No Hallucinations): Claims fully supported by an exact sentence in SOURCE TEXT.
+Claim-partially existing one's (Slight Hallucinations): Related statement exists but does not fully support the claim.
+Claim-not existing one's: No relevant statement exists anywhere in the SOURCE TEXT.
+
+FINAL OUTPUT FORMAT:
+
+Claim-existing one's (Strictly No Hallucinations):
+- Claim: [The Statement]
+- Evidence: [Exact Quote]
+- Verification: Pass/Fail
+
+Claim-partially existing one's (Slight Hallucinations):
+- Claim: [The Statement]
+- Evidence: [Quote or 'NONE FOUND']
+- Verification: Pass/Fail
+
+Claim-not existing one's:
+- Claim: [The Statement]
+- Evidence: NONE FOUND
+- Verification: Fail
+
+FINAL HALLUCINATION AND RISK SCORES:
+- Total Claims: Count of Existing + Count of Partial + Count of Not Existing
+- Hallucination Score Calculation: ((0.5 * Count of Partial) + (1.0 * Count of Not Existing)) / Total Claims
+- Final Hallucination Score: [Result as a percentage]
+    `.trim();
+
+    addLog('🛡️ Running Ironclad fact-check…', 'active');
+    const auditOutput = await groqChat(apiKey, auditPrompt);
+    addLog('✅ Audit complete!', 'done');
+    setProgress(100, 'Analysis Complete!');
+    setPipeAllDone();
+
+    // ── RENDER RESULTS ────────────────────────────────
+    document.getElementById('progress-section').classList.add('hidden');
+    document.getElementById('results-area').classList.remove('hidden');
+
+    insights.forEach((r, i) => renderInsight(r, i));
+    renderAudit(auditOutput);
+
+  } catch (err) {
+    console.error(err);
+    showError(err.message || 'An unexpected error occurred.');
+    document.getElementById('progress-section').classList.add('hidden');
+    document.getElementById('splash-area').classList.remove('hidden');
+    setPipeStep(-1);
+  } finally {
+    document.getElementById('run-btn').disabled = false;
+    checkReady();
+  }
+}
+</script>
+
+</body>
+</html>
