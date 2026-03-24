@@ -43,13 +43,18 @@ PDF → Text Extraction → Sentence Chunking → Semantic Embeddings
 
 ---
 
-## Quickstart
-```bash
-pip install -r requirements.txt
-python main.py
-```
+## API Key Requirement
 
-You'll be prompted for a **PDF** and a **query or investigation goal**. The pipeline handles the rest and saves results to `example_output.json`.
+This project uses the Groq API for running LLM analysis.
+
+To use the application, you will need your own Groq API key.
+
+1. Get an API key from:
+https://console.groq.com
+
+2. When launching the web interface, the application will prompt you to enter your Groq API key.
+
+The key is used only for the current session to run the LLM analysis pipeline.
 
 ---
 
