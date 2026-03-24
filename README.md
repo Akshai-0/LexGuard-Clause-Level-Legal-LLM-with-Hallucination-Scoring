@@ -65,11 +65,11 @@ You'll be prompted for a **PDF** and a **query or investigation goal**. The pipe
 ## Project Structure
 ```
 legal-llm-auditor/
-├── App.bat
-├── sample_contract.pdf
 ├── Code.py
-├── requirements.txt
-└── README.md
+├── Readme.md
+├── Sample Contract.pdf
+├── index.html
+└── requirements
 ```
 
 ---
